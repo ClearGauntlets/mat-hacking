@@ -1,6 +1,6 @@
 #!/bin/bash
 IMAGINE_DIR=$(pwd)
-mkdir -p "$IMAGINE_DIR"
+#mkdir -p "$IMAGINE_DIR"
 podman run --rm -it                             \
     --name=esp-idf-dev                          \
     -v "$IMAGINE_DIR":/workspace                \
