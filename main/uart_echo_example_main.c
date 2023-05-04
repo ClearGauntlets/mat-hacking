@@ -68,7 +68,7 @@ static void echo_task(void *arg)
         // Read data from the UART
         int len = uart_read_bytes(ECHO_UART_PORT_NUM, data, (BUF_SIZE - 1), 20 / portTICK_PERIOD_MS);
         // Write data back to the UART
-        uart_write_bytes(ECHO_UART_PORT_NUM, (const char *) data, len);
+        //uart_write_bytes(ECHO_UART_PORT_NUM, (const char *) data, len);
         if (len) {
             data[len] = '\0';
             ESP_LOGI(TAG, "Recv str: %s", (char *) data);
