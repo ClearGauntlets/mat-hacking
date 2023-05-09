@@ -4,7 +4,6 @@ IMAGINE_DIR=$(pwd)
 podman run --rm -it                             \
     --name=esp-idf-dev                          \
     -v "$IMAGINE_DIR":/workspace                \
-    --device=/dev/ttyUSB0:rwm                   \
     --group-add keep-groups                     \
     --annotation io.crun.keep_original_groups=1 \
     --annotation run.oci.keep_original_groups=1 \
@@ -13,4 +12,4 @@ podman run --rm -it                             \
 
 # To open a shell, run: podman exec -it esp-idf-dev bash
 # To add device, insert a device mapping:
-#    --device=/dev/ttyUSB0    \
+#    --device=/dev/ttyUSB0:rwm                   \

@@ -18,7 +18,7 @@
 */
 #include <stdio.h>
 #include "esp_log.h"
-#include "i2c/include/driver/i2c.h"
+#include "driver/i2c.h"
 
 static const char *TAG = "i2c-simple-example";
 
@@ -35,6 +35,8 @@ static const char *TAG = "i2c-simple-example";
 
 #define MPU9250_PWR_MGMT_1_REG_ADDR         0x6B        /*!< Register addresses of the power managment register */
 #define MPU9250_RESET_BIT                   7
+
+#define LIGHTHOUSE_DECK_ADDR 0x2F
 
 /**
  * @brief Read a sequence of bytes from a MPU9250 sensor registers
@@ -53,6 +55,21 @@ static esp_err_t mpu9250_register_write_byte(uint8_t reg_addr, uint8_t data)
     uint8_t write_buf[2] = {reg_addr, data};
 
     ret = i2c_master_write_to_device(I2C_MASTER_NUM, MPU9250_SENSOR_ADDR, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+
+    return ret;
+}
+
+static esp_err_t lighthouse_deck_get_version(uint8_t *data, size_t len)
+{
+    int ret;
+
+    uint8_t version_command = 0x02;
+
+    // Write the command to return the version
+    ret = i2c_master_write_read_device(I2C_MASTER_NUM, LIGHTHOUSE_DECK_ADDR, &version_command, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+
+    if (ret != 0)
+        ESP_LOGE(TAG, "Could not send 0x02 to lighthouse deck.");
 
     return ret;
 }
@@ -85,12 +102,8 @@ void app_main(void)
     ESP_ERROR_CHECK(i2c_master_init());
     ESP_LOGI(TAG, "I2C initialized successfully");
 
-    /* Read the MPU9250 WHO_AM_I register, on power up the register should have the value 0x71 */
-    ESP_ERROR_CHECK(mpu9250_register_read(MPU9250_WHO_AM_I_REG_ADDR, data, 1));
-    ESP_LOGI(TAG, "WHO_AM_I = %X", data[0]);
-
-    /* Demonstrate writing by reseting the MPU9250 */
-    ESP_ERROR_CHECK(mpu9250_register_write_byte(MPU9250_PWR_MGMT_1_REG_ADDR, 1 << MPU9250_RESET_BIT));
+    ESP_ERROR_CHECK(lighthouse_deck_get_version(data, 1));
+    ESP_LOGI(TAG, "Lighthouse Deck Bootloader Version = %X", data[0]);
 
     ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
     ESP_LOGI(TAG, "I2C de-initialized successfully");
