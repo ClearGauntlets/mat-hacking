@@ -22,6 +22,8 @@
 
 static const char *TAG = "i2c-simple-example";
 
+#define MY_SLAVE_ADDR 0x0A
+
 #define I2C_MASTER_SCL_IO           CONFIG_I2C_MASTER_SCL      /*!< GPIO number used for I2C master clock */
 #define I2C_MASTER_SDA_IO           CONFIG_I2C_MASTER_SDA      /*!< GPIO number used for I2C master data  */
 #define I2C_MASTER_NUM              0                          /*!< I2C master i2c port number, the number of i2c peripheral interfaces available will depend on the chip */
@@ -124,6 +126,27 @@ void app_main(void)
     ESP_ERROR_CHECK(i2c_master_init());
     ESP_LOGI(TAG, "I2C initialized successfully");
 
+    // Scan for devices
+     printf("i2c scan: \n");
+     for (uint8_t i = 1; i < 127; i++)
+     {
+        printf("iter: 0x%2x\n", i);
+        int ret;
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (i << 1) | I2C_MASTER_WRITE, 1);
+        i2c_master_stop(cmd);
+        ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 100 / portTICK_PERIOD_MS);
+        i2c_cmd_link_delete(cmd);
+    
+        if (ret == ESP_OK)
+        {
+            printf("Found device at: 0x%2x\n", i);
+        }
+    }
+    printf("Done.\n");
+
+/*
     ESP_LOGI(TAG, "Attempting boot in 5 seconds...");
     vTaskDelay(5000 / portTICK_PERIOD_MS);
 
@@ -137,4 +160,5 @@ void app_main(void)
 
     ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
     ESP_LOGI(TAG, "I2C de-initialized successfully");
+    */
 }
