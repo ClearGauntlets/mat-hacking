@@ -123,6 +123,7 @@ static esp_err_t i2c_master_init(void)
 void app_main(void)
 {
     uint8_t data[2];
+    uint8_t data_but_again[2];
     ESP_ERROR_CHECK(i2c_master_init());
     ESP_LOGI(TAG, "I2C initialized successfully");
 
@@ -146,6 +147,17 @@ void app_main(void)
     }
     printf("Done.\n");
 
+    int ret;
+    ESP_LOGI(TAG, "Get firmware version...");
+    //ESP_ERROR_CHECK(lighthouse_deck_get_version(data, 1));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(lighthouse_deck_run_command(LHBL_GET_VERSION, data, 1));
+    ESP_LOGI(TAG, "Lighthouse Deck Bootloader Version = %X", data[0]);
+    //ret = lighthouse_deck_run_command(LHBL_GET_VERSION, data_but_again, 1);
+    //ESP_LOGI(TAG, "Lighthouse Deck Bootloader Version = %X", data_but_again[0]);
+    //ESP_LOGI(TAG, "Ret = %d", ret);
+
+
+
 /*
     ESP_LOGI(TAG, "Attempting boot in 5 seconds...");
     vTaskDelay(5000 / portTICK_PERIOD_MS);
@@ -157,8 +169,9 @@ void app_main(void)
 
     ESP_ERROR_CHECK(lighthouse_deck_run_command(LHBL_BOOT_TO_FW, data, 1));
     ESP_LOGI(TAG, "Deck booting...");
+    */
 
     ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
     ESP_LOGI(TAG, "I2C de-initialized successfully");
-    */
+    ESP_LOGI(TAG, "Goodbye!");
 }
