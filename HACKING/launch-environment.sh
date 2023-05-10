@@ -8,6 +8,7 @@ podman run --rm -it                             \
     --annotation io.crun.keep_original_groups=1 \
     --annotation run.oci.keep_original_groups=1 \
     --security-opt label=disable \
+    --device=/dev/ttyUSB0:rwm                   \
     esp-idf-dev
 
 # To open a shell, run: podman exec -it esp-idf-dev bash

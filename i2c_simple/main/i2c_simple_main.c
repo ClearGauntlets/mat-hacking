@@ -38,6 +38,21 @@ static const char *TAG = "i2c-simple-example";
 
 #define LIGHTHOUSE_DECK_ADDR 0x2F
 
+#define LH_FW_SIZE          0x020000
+#define LH_FLASH_PAGE_SIZE  256
+#define LH_WRITE_BUF_SIZE   (5 + 4 + LH_FLASH_PAGE_SIZE)
+
+/* Commands */
+#define LHBL_BOOT_TO_FW         0x00
+#define LHBL_BL_CMD             0x01
+#define LHBL_GET_VERSION        0x02
+#define FLASH_CMD_READ          0x03
+#define FLASH_CMD_READ_STATUS   0x05
+#define FLASH_CMD_WRITE_PAGE    0x02
+#define FLASH_CMD_WRITE_EN      0x06
+#define FLASH_CMD_ERASE_SECTOR  0xD8
+#define FLASH_CMD_WAKEUP        0xAB
+
 /**
  * @brief Read a sequence of bytes from a MPU9250 sensor registers
  */
@@ -59,6 +74,12 @@ static esp_err_t mpu9250_register_write_byte(uint8_t reg_addr, uint8_t data)
     return ret;
 }
 
+static esp_err_t lighthouse_deck_run_command(uint8_t command, uint8_t *data, size_t len)
+{
+    return i2c_master_write_read_device(I2C_MASTER_NUM, LIGHTHOUSE_DECK_ADDR, &command, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+}
+
+/*
 static esp_err_t lighthouse_deck_get_version(uint8_t *data, size_t len)
 {
     int ret;
@@ -73,6 +94,7 @@ static esp_err_t lighthouse_deck_get_version(uint8_t *data, size_t len)
 
     return ret;
 }
+*/
 
 /**
  * @brief i2c master initialization
@@ -85,8 +107,8 @@ static esp_err_t i2c_master_init(void)
         .mode = I2C_MODE_MASTER,
         .sda_io_num = I2C_MASTER_SDA_IO,
         .scl_io_num = I2C_MASTER_SCL_IO,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .sda_pullup_en = GPIO_PULLUP_DISABLE,
+        .scl_pullup_en = GPIO_PULLUP_DISABLE,
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
     };
 
@@ -102,8 +124,16 @@ void app_main(void)
     ESP_ERROR_CHECK(i2c_master_init());
     ESP_LOGI(TAG, "I2C initialized successfully");
 
-    ESP_ERROR_CHECK(lighthouse_deck_get_version(data, 1));
+    ESP_LOGI(TAG, "Attempting boot in 5 seconds...");
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+    ESP_LOGI(TAG, "Get firmware version...");
+    //ESP_ERROR_CHECK(lighthouse_deck_get_version(data, 1));
+    ESP_ERROR_CHECK(lighthouse_deck_run_command(LHBL_GET_VERSION, data, 1));
     ESP_LOGI(TAG, "Lighthouse Deck Bootloader Version = %X", data[0]);
+
+    ESP_ERROR_CHECK(lighthouse_deck_run_command(LHBL_BOOT_TO_FW, data, 1));
+    ESP_LOGI(TAG, "Deck booting...");
 
     ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
     ESP_LOGI(TAG, "I2C de-initialized successfully");
