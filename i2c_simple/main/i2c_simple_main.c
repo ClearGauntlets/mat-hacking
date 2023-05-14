@@ -83,7 +83,7 @@ static const char *TAG = "MAT Hacking";
 #define ECHO_UART_BAUD_RATE     (CONFIG_EXAMPLE_UART_BAUD_RATE)
 #define ECHO_TASK_STACK_SIZE    (CONFIG_EXAMPLE_TASK_STACK_SIZE)
 
-#define BUF_SIZE (8192)
+#define BUF_SIZE (128)
 
 
 
@@ -238,7 +238,10 @@ void app_main(void)
         
         if (len) {
             output[len] = '\0';
-            ESP_LOGI(TAG, "Recv str: %s", (char *) output);
+            //ESP_LOGI(TAG, "Recv str: %x", output);
+
+            for (size_t i = 0; i < sizeof(output); ++i) printf("%02x", output[i]);
+            printf("\n");
         }
         
     }
