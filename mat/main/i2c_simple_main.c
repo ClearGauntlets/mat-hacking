@@ -114,6 +114,31 @@ typedef struct {
   pulseProcessorFrame_t data;
 } lighthouseUartFrame_t;
 
+static void wait_for_uart_sync_frame() {
+  char c;
+  int syncCounter = 0;
+  bool synchronized = false;
+
+  uint32_t tick = 20 / portTICK_PERIOD_MS;
+  ESP_LOGD(TAG, "Waiting for sync frame... UART timeout is %ld", tick);
+
+  while (!synchronized) {
+    int byte = uart_read_bytes(ECHO_UART_PORT_NUM, (uint8_t*)&c, 1, tick);
+    if (byte != 1)
+        ESP_LOGW(TAG, "Read %d bytes instead of 1.", byte);
+
+    //printf("%02x", c);
+    ESP_LOGD(TAG, "%02x", c);
+
+    if ((unsigned char)c == 0xff) {
+      syncCounter += 1;
+    } else {
+      syncCounter = 0;
+    }
+    synchronized = (syncCounter == UART_FRAME_LENGTH);
+  }
+}
+
 static bool get_uart_frame_raw(lighthouseUartFrame_t *frame) {
   static char data[UART_FRAME_LENGTH];
   int syncCounter = 0;
@@ -186,10 +211,23 @@ static esp_err_t i2c_master_init(void)
 }
 
 void fpga_data_task(void* arg){
-    for (;;) {
-        lighthouseUartFrame_t frame;
-        bool ligma = get_uart_frame_raw(&frame);
-        printf("Timestamp: %ld, Width: %d\n", frame.data.timestamp, frame.data.width);
+    lighthouseUartFrame_t frame;
+    bool uart_synced = false;
+    bool frame_valid = false;
+    while (1) {
+        wait_for_uart_sync_frame();
+        uart_synced = true;
+        bool previous_frame_was_sync_frame = false;
+
+        while ((frame_valid = get_uart_frame_raw(&frame))) {
+            if (frame.isSyncFrame && previous_frame_was_sync_frame)
+                printf("Oops, all sync frames!");
+            else if (!frame.isSyncFrame) {
+                printf("Timestamp: %ld, Width: %d\n", frame.data.timestamp, frame.data.width);
+            }
+            previous_frame_was_sync_frame = frame.isSyncFrame;
+        }
+        uart_synced = false;
     }
 }
 
@@ -197,7 +235,6 @@ void fpga_data_task(void* arg){
 void app_main(void)
 {
     uint8_t data[2];
-    uint8_t data_but_again[2];
     ESP_ERROR_CHECK(i2c_master_init());
     ESP_LOGI(TAG, "I2C initialized successfully");
 
