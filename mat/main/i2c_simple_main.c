@@ -185,6 +185,14 @@ static esp_err_t i2c_master_init(void)
     return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
 }
 
+void fpga_data_task(void* arg){
+    for (;;) {
+        lighthouseUartFrame_t frame;
+        bool ligma = get_uart_frame_raw(&frame);
+        printf("Timestamp: %ld, Width: %d\n", frame.data.timestamp, frame.data.width);
+    }
+}
+
 
 void app_main(void)
 {
@@ -244,14 +252,11 @@ void app_main(void)
     ESP_ERROR_CHECK_WITHOUT_ABORT(lighthouse_deck_run_command_no_return(LHBL_BOOT_TO_FW));
     ESP_LOGI(TAG, "Deck booting...");
 
-    uint8_t *output = (uint8_t *) malloc(BUF_SIZE);
-    while (1) {
-        lighthouseUartFrame_t frame;
-        bool ligma = get_uart_frame_raw(&frame);
-        printf("Timestamp: %ld, Width: %d\n", frame.data.timestamp, frame.data.width);
-    }
+    ESP_LOGI(TAG, "Entering main tracking loop...");
 
-    ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
-    ESP_LOGI(TAG, "I2C de-initialized successfully");
+    xTaskCreate(fpga_data_task, "fpga_data_task", 4096, NULL, tskIDLE_PRIORITY, NULL);
+
+    //ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
+    //ESP_LOGI(TAG, "I2C de-initialized successfully");
     ESP_LOGI(TAG, "Goodbye!");
 }
