@@ -154,28 +154,6 @@ static bool get_uart_frame_raw(lighthouseUartFrame_t *frame) {
   return isFrameValid;
 }
 
-
-/**
- * @brief Read a sequence of bytes from a MPU9250 sensor registers
- */
-static esp_err_t mpu9250_register_read(uint8_t reg_addr, uint8_t *data, size_t len)
-{
-    return i2c_master_write_read_device(I2C_MASTER_NUM, MPU9250_SENSOR_ADDR, &reg_addr, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-}
-
-/**
- * @brief Write a byte to a MPU9250 sensor register
- */
-static esp_err_t mpu9250_register_write_byte(uint8_t reg_addr, uint8_t data)
-{
-    int ret;
-    uint8_t write_buf[2] = {reg_addr, data};
-
-    ret = i2c_master_write_to_device(I2C_MASTER_NUM, MPU9250_SENSOR_ADDR, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-
-    return ret;
-}
-
 static esp_err_t lighthouse_deck_run_command(uint8_t command, uint8_t *data, size_t len)
 {
     return i2c_master_write_read_device(I2C_MASTER_NUM, LIGHTHOUSE_DECK_ADDR, &command, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
@@ -185,23 +163,6 @@ static esp_err_t lighthouse_deck_run_command_no_return(uint8_t command)
 {
     return i2c_master_write_to_device(I2C_MASTER_NUM, LIGHTHOUSE_DECK_ADDR, &command, 1, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
 }
-
-/*
-static esp_err_t lighthouse_deck_get_version(uint8_t *data, size_t len)
-{
-    int ret;
-
-    uint8_t version_command = 0x02;
-
-    // Write the command to return the version
-    ret = i2c_master_write_read_device(I2C_MASTER_NUM, LIGHTHOUSE_DECK_ADDR, &version_command, 1, data, len, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-
-    if (ret != 0)
-        ESP_LOGE(TAG, "Could not send 0x02 to lighthouse deck.");
-
-    return ret;
-}
-*/
 
 /**
  * @brief i2c master initialization
@@ -283,42 +244,12 @@ void app_main(void)
     ESP_ERROR_CHECK_WITHOUT_ABORT(lighthouse_deck_run_command_no_return(LHBL_BOOT_TO_FW));
     ESP_LOGI(TAG, "Deck booting...");
 
-    /*
-    ESP_LOGI(TAG, "Attempting boot in 5 seconds...");
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-
-    // Configure a temporary buffer for the incoming data
-    char break_condition_and_boot[5] = { 0x00, 0x00, 0x00, 0xBC, 0x00 };
-    //char boot[1] = { 0xBC }; 
-    //uart_write_bytes(ECHO_UART_PORT_NUM, break_condition, 3);
-    uart_write_bytes(ECHO_UART_PORT_NUM, break_condition_and_boot, 5);
-    */
-
     uint8_t *output = (uint8_t *) malloc(BUF_SIZE);
     while (1) {
         lighthouseUartFrame_t frame;
         bool ligma = get_uart_frame_raw(&frame);
         printf("Timestamp: %ld, Width: %d\n", frame.data.timestamp, frame.data.width);
     }
-
-
-
-    /*
-    ESP_LOGI(TAG, "Lighthouse Deck Enable UART");
-    ESP_ERROR_CHECK_WITHOUT_ABORT(lighthouse_deck_run_command(LHBL_ENABLE_UART, data, 1));
-    ESP_LOGI(TAG, "Response: %s", data);
-
-    ESP_LOGI(TAG, "Attempting boot in 5 seconds...");
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-
-    ESP_LOGI(TAG, "Get firmware version...");
-    //ESP_ERROR_CHECK(lighthouse_deck_get_version(data, 1));
-    ESP_ERROR_CHECK(lighthouse_deck_run_command(LHBL_GET_VERSION, data, 1));
-    ESP_LOGI(TAG, "Lighthouse Deck Bootloader Version = %X", data[0]);
-
-    ESP_ERROR_CHECK(lighthouse_deck_run_command(LHBL_BOOT_TO_FW, data, 1));
-    ESP_LOGI(TAG, "Deck booting...");
-    */
 
     ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
     ESP_LOGI(TAG, "I2C de-initialized successfully");
