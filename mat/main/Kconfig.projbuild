@@ -30,10 +30,10 @@ menu "MAT Hacking Configuration"
 
     config EXAMPLE_UART_BAUD_RATE
         int "UART communication speed"
-        range 1200 115200
-        default 115200
+        range 1200 230400
+        default 230400
         help
-            UART communication speed for Modbus example.
+            UART communication speed for talking to Lighthouse FPGA.
 
     config EXAMPLE_UART_RXD
         int "UART RXD pin number"

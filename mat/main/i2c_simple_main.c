@@ -17,6 +17,7 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #include <stdio.h>
+#include <string.h>
 #include "esp_log.h"
 #include "driver/i2c.h"
 
@@ -85,6 +86,73 @@ static const char *TAG = "MAT Hacking";
 
 #define BUF_SIZE (128)
 
+#define UART_FRAME_LENGTH 12
+
+/**
+ * @brief Data for one pulse, detected by one sensor and decoded by the FPGA on the dack.
+ * Used both for lighthouse V1 and V2.
+ *
+ */
+typedef struct {
+  uint8_t sensor;
+  uint32_t timestamp;
+
+  // V1 base station data --------
+  uint16_t width;
+
+  // V2 base station data --------
+  uint32_t beamData;
+  uint32_t offset;
+  // Channel is zero indexed (0-15) here, while it is one indexed in the base station config (1 - 16)
+  uint8_t channel; // Valid if channelFound is true
+  uint8_t slowBit; // Valid if channelFound is true
+  bool channelFound;
+} pulseProcessorFrame_t;
+
+typedef struct {
+  bool isSyncFrame;
+  pulseProcessorFrame_t data;
+} lighthouseUartFrame_t;
+
+static bool get_uart_frame_raw(lighthouseUartFrame_t *frame) {
+  static char data[UART_FRAME_LENGTH];
+  int syncCounter = 0;
+
+  for(int i = 0; i < UART_FRAME_LENGTH; i++) {
+    uart_read_bytes(ECHO_UART_PORT_NUM, data, 1, 20 / portTICK_PERIOD_MS);
+    if ((unsigned char)data[i] == 0xff) {
+      syncCounter += 1;
+    }
+  }
+
+  // Print out the data
+  //output[len] = '\0';
+  for (size_t i = 1; i < sizeof(data); ++i) printf("%02x", data[i]);
+  printf(" ");
+
+  memset(frame, 0, sizeof(*frame));
+
+  frame->isSyncFrame = (syncCounter == UART_FRAME_LENGTH);
+
+  frame->data.sensor = data[0] & 0x03;
+  frame->data.channelFound = (data[0] & 0x80) == 0;
+  frame->data.channel = (data[0] >> 3) & 0x0f;
+  frame->data.slowBit = (data[0] >> 2) & 0x01;
+  memcpy(&frame->data.width, &data[1], 2);
+  memcpy(&frame->data.offset, &data[3], 3);
+  memcpy(&frame->data.beamData, &data[6], 3);
+  memcpy(&frame->data.timestamp, &data[9], 3);
+
+  // Offset is expressed in a 6 MHz clock, convert to the 24 MHz that is used for timestamps
+  frame->data.offset *= 4;
+
+  bool isPaddingZero = (((data[5] | data[8]) & 0xfe) == 0);
+  bool isFrameValid = (isPaddingZero || frame->isSyncFrame);
+
+  //STATS_CNT_RATE_EVENT_DEBUG(&serialFrameRate);
+
+  return isFrameValid;
+}
 
 
 /**
@@ -184,11 +252,11 @@ void app_main(void)
     }
     printf("Done.\n");
 
-    printf("Configuring UART...\n");
+    printf("Configuring UART... (BAUD rate is %d)\n", ECHO_UART_BAUD_RATE);
     /* Configure parameters of an UART driver,
      * communication pins and install the driver */
     uart_config_t uart_config = {
-        .baud_rate = 230400,
+        .baud_rate = ECHO_UART_BAUD_RATE,
         .data_bits = UART_DATA_8_BITS,
         .parity    = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
@@ -228,23 +296,12 @@ void app_main(void)
 
     uint8_t *output = (uint8_t *) malloc(BUF_SIZE);
     while (1) {
-        // Read data from the UART
-        int len = uart_read_bytes(ECHO_UART_PORT_NUM, output, (BUF_SIZE - 1), 20 / portTICK_PERIOD_MS);
-        // Write data back to the UART
-        //uart_write_bytes(ECHO_UART_PORT_NUM, (const char *) data, len);
-        
-        //uart_write_bytes(ECHO_UART_PORT_NUM, "Hello", 5);
-        //vTaskDelay(5000 / portTICK_PERIOD_MS);
-        
-        if (len) {
-            output[len] = '\0';
-            //ESP_LOGI(TAG, "Recv str: %x", output);
-
-            for (size_t i = 0; i < sizeof(output); ++i) printf("%02x", output[i]);
-            printf("\n");
-        }
-        
+        lighthouseUartFrame_t frame;
+        bool ligma = get_uart_frame_raw(&frame);
+        printf("Timestamp: %ld, Width: %d\n", frame.data.timestamp, frame.data.width);
     }
+
+
 
     /*
     ESP_LOGI(TAG, "Lighthouse Deck Enable UART");
