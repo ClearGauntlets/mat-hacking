@@ -119,7 +119,7 @@ static bool get_uart_frame_raw(lighthouseUartFrame_t *frame) {
   int syncCounter = 0;
 
   for(int i = 0; i < UART_FRAME_LENGTH; i++) {
-    uart_read_bytes(ECHO_UART_PORT_NUM, data, 1, 20 / portTICK_PERIOD_MS);
+    uart_read_bytes(ECHO_UART_PORT_NUM, (uint8_t*)&data[i], 1, 20 / portTICK_PERIOD_MS);
     if ((unsigned char)data[i] == 0xff) {
       syncCounter += 1;
     }
