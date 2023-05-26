@@ -128,7 +128,7 @@ static void wait_for_uart_sync_frame() {
         ESP_LOGW(TAG, "Read %d bytes instead of 1.", byte);
 
     //printf("%02x", c);
-    ESP_LOGD(TAG, "%02x", c);
+    //ESP_LOGD(TAG, "%02x", c);
 
     if ((unsigned char)c == 0xff) {
       syncCounter += 1;
@@ -137,6 +137,8 @@ static void wait_for_uart_sync_frame() {
     }
     synchronized = (syncCounter == UART_FRAME_LENGTH);
   }
+  ESP_LOGI(TAG, "Synchronized.");
+
 }
 
 static bool get_uart_frame_raw(lighthouseUartFrame_t *frame) {
@@ -176,6 +178,9 @@ static bool get_uart_frame_raw(lighthouseUartFrame_t *frame) {
 
   //STATS_CNT_RATE_EVENT_DEBUG(&serialFrameRate);
 
+  if (!isFrameValid) {
+    ESP_LOGW(TAG, "syncCounter = %d. isPaddingZero = %d", syncCounter, isPaddingZero);
+  }
   return isFrameValid;
 }
 
@@ -227,6 +232,7 @@ void fpga_data_task(void* arg){
             }
             previous_frame_was_sync_frame = frame.isSyncFrame;
         }
+        ESP_LOGW(TAG, "Uart not synchronized!");
         uart_synced = false;
     }
 }
