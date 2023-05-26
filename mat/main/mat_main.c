@@ -119,7 +119,7 @@ static void wait_for_uart_sync_frame() {
   int syncCounter = 0;
   bool synchronized = false;
 
-  uint32_t tick = 20 / portTICK_PERIOD_MS;
+  uint32_t tick = portTICK_PERIOD_MS;
   ESP_LOGD(TAG, "Waiting for sync frame... UART timeout is %ld", tick);
 
   while (!synchronized) {
@@ -132,8 +132,10 @@ static void wait_for_uart_sync_frame() {
 
     if ((unsigned char)c == 0xff) {
       syncCounter += 1;
+      ESP_LOGD(TAG, "Got sync byte");
     } else {
       syncCounter = 0;
+      ESP_LOGD(TAG, "Sync broken. Restarting.");
     }
     synchronized = (syncCounter == UART_FRAME_LENGTH);
   }
@@ -146,7 +148,7 @@ static bool get_uart_frame_raw(lighthouseUartFrame_t *frame) {
   int syncCounter = 0;
 
   for(int i = 0; i < UART_FRAME_LENGTH; i++) {
-    uart_read_bytes(ECHO_UART_PORT_NUM, (uint8_t*)&data[i], 1, 20 / portTICK_PERIOD_MS);
+    uart_read_bytes(ECHO_UART_PORT_NUM, (uint8_t*)&data[i], 1, portTICK_PERIOD_MS);
     if ((unsigned char)data[i] == 0xff) {
       syncCounter += 1;
     }
@@ -219,6 +221,22 @@ void fpga_data_task(void* arg){
     lighthouseUartFrame_t frame;
     bool uart_synced = false;
     bool frame_valid = false;
+
+    /*
+    // Debugging
+    static char data_debug[UART_FRAME_LENGTH];
+    while (1) {
+        uart_read_bytes(ECHO_UART_PORT_NUM, (uint8_t*)&data_debug, UART_FRAME_LENGTH, (20 / portTICK_PERIOD_MS) * 12);
+
+        ESP_LOGD(TAG, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", data_debug[0],data_debug[1],data_debug[2],data_debug[3],data_debug[4],data_debug[5],data_debug[6],data_debug[7],data_debug[8],data_debug[9],data_debug[10],data_debug[11]);
+        
+        memset(data_debug, 0, UART_FRAME_LENGTH);
+
+        //for (size_t i = 1; i < sizeof(data_debug); ++i) printf("%02x", data_debug[i]);
+        //printf(" ");
+    }
+    */
+
     while (1) {
         wait_for_uart_sync_frame();
         uart_synced = true;
