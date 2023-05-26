@@ -132,10 +132,12 @@ static void wait_for_uart_sync_frame() {
 
     if ((unsigned char)c == 0xff) {
       syncCounter += 1;
-      ESP_LOGD(TAG, "Got sync byte");
+      //ESP_LOGD(TAG, "Got sync byte (%d)", syncCounter);
     } else {
+      if (syncCounter > 4)
+        ESP_LOGE(TAG, "Sync broken (was at %d). Restarting.", syncCounter);
+
       syncCounter = 0;
-      ESP_LOGD(TAG, "Sync broken. Restarting.");
     }
     synchronized = (syncCounter == UART_FRAME_LENGTH);
   }
@@ -217,25 +219,27 @@ static esp_err_t i2c_master_init(void)
     return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
 }
 
+void debug_dump() {
+  // Debugging
+  static char data_debug[UART_FRAME_LENGTH];
+  while (1) {
+    uart_read_bytes(ECHO_UART_PORT_NUM, (uint8_t*)&data_debug, UART_FRAME_LENGTH, (20 / portTICK_PERIOD_MS) * 12);
+
+    ESP_LOGD(TAG, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", data_debug[0],data_debug[1],data_debug[2],data_debug[3],data_debug[4],data_debug[5],data_debug[6],data_debug[7],data_debug[8],data_debug[9],data_debug[10],data_debug[11]);
+    
+    memset(data_debug, 0, UART_FRAME_LENGTH);
+
+    //for (size_t i = 1; i < sizeof(data_debug); ++i) printf("%02x", data_debug[i]);
+    //printf(" ");
+  }
+}
+
 void fpga_data_task(void* arg){
     lighthouseUartFrame_t frame;
     bool uart_synced = false;
     bool frame_valid = false;
 
-    /*
-    // Debugging
-    static char data_debug[UART_FRAME_LENGTH];
-    while (1) {
-        uart_read_bytes(ECHO_UART_PORT_NUM, (uint8_t*)&data_debug, UART_FRAME_LENGTH, (20 / portTICK_PERIOD_MS) * 12);
-
-        ESP_LOGD(TAG, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", data_debug[0],data_debug[1],data_debug[2],data_debug[3],data_debug[4],data_debug[5],data_debug[6],data_debug[7],data_debug[8],data_debug[9],data_debug[10],data_debug[11]);
-        
-        memset(data_debug, 0, UART_FRAME_LENGTH);
-
-        //for (size_t i = 1; i < sizeof(data_debug); ++i) printf("%02x", data_debug[i]);
-        //printf(" ");
-    }
-    */
+    debug_dump(); 
 
     while (1) {
         wait_for_uart_sync_frame();
@@ -244,9 +248,9 @@ void fpga_data_task(void* arg){
 
         while ((frame_valid = get_uart_frame_raw(&frame))) {
             if (frame.isSyncFrame && previous_frame_was_sync_frame)
-                printf("Oops, all sync frames!");
+                ESP_LOGW(TAG, "Oops, all sync frames!");
             else if (!frame.isSyncFrame) {
-                printf("Timestamp: %ld, Width: %d\n", frame.data.timestamp, frame.data.width);
+                ESP_LOGI(TAG, "Timestamp: %ld, Width: %d", frame.data.timestamp, frame.data.width);
             }
             previous_frame_was_sync_frame = frame.isSyncFrame;
         }
